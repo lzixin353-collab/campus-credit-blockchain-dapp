@@ -1,29 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import "./RoleContract.sol";
+// 极简学分合约：内置权限，无继承，无依赖
+contract CreditContract {
+    // 核心状态变量
+    address public owner; // 部署者=超级管理员
+    mapping(address => bool) public isTeacher; // 教师权限映射
+    mapping(address => bool) public isAdmin; // 管理员权限映射
 
-// 学分存证核心合约
-contract CreditContract is RoleContract {
-    // 学分结构体：存储核心信息
+    // 学分结构体（保持你的原有结构）
     struct Credit {
-        uint256 creditId; // 学分唯一ID
-        string studentId; // 学生学号（链下关联，便于查询）
-        string courseName; // 课程名称
-        uint8 score; // 学分分数（0-100）
-        address teacherAddress; // 录入的教师地址
-        bool isApproved; // 是否通过管理员审核
-        bool exists; // 新增：用布尔值标记是否存在，替代时间戳
+        uint256 creditId;
+        string studentId;
+        string courseName;
+        uint8 score;
+        address teacherAddress;
+        bool isApproved;
+        bool exists;
     }
 
-    // 存储所有学分信息（creditId => Credit）
+    // 学分存储（保持你的原有映射）
     mapping(uint256 => Credit) public credits;
-    // 学生学号 => 学分ID列表（便于学生查询自己的所有学分）
     mapping(string => uint256[]) public studentCreditIds;
-    // 自增的学分ID
     uint256 public nextCreditId;
 
-    // 事件：学分录入
+    // 事件（保持原有）
     event CreditRecorded(
         uint256 indexed creditId, 
         string indexed studentId, 
@@ -31,21 +32,62 @@ contract CreditContract is RoleContract {
         uint8 score,
         address indexed teacherAddress
     );
-    // 事件：学分审核通过
     event CreditApproved(
         uint256 indexed creditId, 
         address indexed adminAddress
     );
+    event RoleAssigned(address indexed user, string indexed role);
 
-    // 教师录入学分（仅教师角色可操作）
+    // 构造函数：部署者默认拥有所有权限
+    constructor() {
+        owner = msg.sender;
+        isTeacher[msg.sender] = true;
+        isAdmin[msg.sender] = true;
+    }
+
+    // 基础权限修饰符（极简，无依赖）
+    modifier onlyOwner() {
+        require(msg.sender == owner, "CreditContract: only owner");
+        _;
+    }
+    modifier onlyTeacher() {
+        require(isTeacher[msg.sender], "CreditContract: not a teacher");
+        _;
+    }
+    modifier onlyAdmin() {
+        require(isAdmin[msg.sender], "CreditContract: not a admin");
+        _;
+    }
+
+    // 分配角色（仅Owner可操作，适配你的原有接口）
+    function assignRole(address user, string calldata role) external onlyOwner {
+        require(bytes(role).length > 0, "Role cannot be empty");
+        if (keccak256(bytes(role)) == keccak256(bytes("teacher"))) {
+            isTeacher[user] = true;
+            emit RoleAssigned(user, "teacher");
+        } else if (keccak256(bytes(role)) == keccak256(bytes("admin"))) {
+            isAdmin[user] = true;
+            emit RoleAssigned(user, "admin");
+        } else if (keccak256(bytes(role)) == keccak256(bytes("student"))) {
+            // 学生角色仅标记，无特殊权限
+            emit RoleAssigned(user, "student");
+        }
+    }
+
+    // 查询角色（适配你的原有接口）
+    function getRole(address user) external view returns (string memory) {
+        if (isTeacher[user]) return "teacher";
+        if (isAdmin[user]) return "admin";
+        return "";
+    }
+
+    // 录入学分（完全保留你的业务逻辑，仅权限修饰符极简）
     function recordCredit(
         string calldata studentId,
         string calldata courseName,
         uint8 score
     ) external onlyTeacher {
-        // 校验分数范围（0-100）
         require(score <= 100, "CreditContract: invalid score(0-100)");
-        // 校验学生学号非空（简单校验）
         require(bytes(studentId).length > 0, "CreditContract: empty studentId");
         require(bytes(courseName).length > 0, "CreditContract: courseName empty");
 
@@ -60,39 +102,29 @@ contract CreditContract is RoleContract {
             exists: true 
         });
         nextCreditId++;
-
-        // 将学分ID关联到学生学号
         studentCreditIds[studentId].push(creditId);
 
         emit CreditRecorded(creditId, studentId, courseName, score, msg.sender);
     }
 
-    // 管理员审核学分（仅管理员角色可操作）
+    // 审核学分（保留原有逻辑）
     function approveCredit(uint256 creditId) external onlyAdmin {
-        // 校验学分存在
         require(credits[creditId].exists, "CreditContract: credit not exist");
-        // 校验未审核过
         require(!credits[creditId].isApproved, "CreditContract: credit already approved");
-
         credits[creditId].isApproved = true;
         emit CreditApproved(creditId, msg.sender);
     }
 
-    // 查询学生所有学分（任何人可查，但学生只能看自己的，前端做控制）
+    // 查询学生学分（保留原有逻辑）
     function getStudentCredits(string calldata studentId) external view returns (Credit[] memory) {
         require(bytes(studentId).length > 0, "CreditContract: studentId empty");
-
         uint256[] memory ids = studentCreditIds[studentId];
         uint256 validCount = 0;
 
-        // 第一步：统计有效学分数量（exists=true）
         for (uint256 i = 0; i < ids.length; i++) {
-            if (credits[ids[i]].exists) {
-                validCount++;
-            }
+            if (credits[ids[i]].exists) validCount++;
         }
 
-        // 第二步：填充有效学分数据
         Credit[] memory result = new Credit[](validCount);
         uint256 index = 0;
         for (uint256 i = 0; i < ids.length; i++) {
@@ -101,11 +133,10 @@ contract CreditContract is RoleContract {
                 index++;
             }
         }
-
         return result;
     }
 
-    // 查询单个学分详情
+    // 查询单个学分（保留原有逻辑）
     function getCreditById(uint256 creditId) external view returns (Credit memory) {
         require(credits[creditId].exists, "CreditContract: credit not exist");
         return credits[creditId];

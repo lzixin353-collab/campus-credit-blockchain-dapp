@@ -17,6 +17,29 @@ contract RoleContract is AccessControl,Ownable{
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);// 默认管理员角色，用于分配其他角色
     }
 
+    // 存储用户角色：address → role（admin/teacher/student）
+    mapping(address => string) private _userRoles;
+
+    // 分配角色的方法（重点：方法名assignRole，确保存在）
+    function assignRole(address user, string calldata role) external onlyOwner {
+        require(bytes(role).length > 0, "Role cannot be empty");
+        _userRoles[user] = role;
+
+        // 关键：根据字符串角色，分配对应的AccessControl角色
+        if (keccak256(bytes(role)) == keccak256(bytes("teacher"))) {
+            grantRole(TEACHER_ROLE, user);
+        } else if (keccak256(bytes(role)) == keccak256(bytes("admin"))) {
+            grantRole(ADMIN_ROLE, user);
+        } else if (keccak256(bytes(role)) == keccak256(bytes("student"))) {
+            grantRole(STUDENT_ROLE, user);
+        }
+    }
+
+    // 查询角色的方法
+    function getRole(address user) external view returns (string memory) {
+        return _userRoles[user];
+    }
+
     // 超级管理员（Owner）分配教师角色
     function grantTeacherRole(address account) external onlyOwner {
         grantRole(TEACHER_ROLE, account);

@@ -1,30 +1,21 @@
-// scripts/deploy.js - 适配 CreditContract 0参数构造函数
 const hre = require("hardhat");
 
 async function main() {
-  console.log("开始部署合约到本地 Hardhat 节点...");
+  console.log("开始部署极简 CreditContract（无继承）...");
 
-  // 1. 部署 RoleContract（权限管理合约）
-  const RoleContract = await hre.ethers.getContractFactory("RoleContract");
-  const roleContract = await RoleContract.deploy();
-  await roleContract.deployed(); // v5 等待部署完成
-  console.log(`✅ RoleContract 部署完成，地址: ${roleContract.address}`);
-
-  // 2. 部署 CreditContract（学分合约，无构造函数参数）
+  // 仅部署 CreditContract（内置所有权限逻辑）
   const CreditContract = await hre.ethers.getContractFactory("CreditContract");
-  // 关键修改：移除 roleContract.address 参数，适配0参数构造函数
   const creditContract = await CreditContract.deploy(); 
   await creditContract.deployed();
   console.log(`✅ CreditContract 部署完成，地址: ${creditContract.address}`);
 
   // 部署总结
   console.log("\n📌 本地部署总结：");
-  console.log(`- RoleContract 地址: ${roleContract.address}`);
   console.log(`- CreditContract 地址: ${creditContract.address}`);
   console.log(`- 本地 RPC 地址: http://127.0.0.1:8545`);
+  console.log(`- 部署者地址（默认教师/管理员）: ${(await hre.ethers.getSigners())[0].address}`);
 }
 
-// 执行部署并捕获错误
 main()
   .then(() => process.exit(0))
   .catch((error) => {
