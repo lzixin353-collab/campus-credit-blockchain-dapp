@@ -19,10 +19,10 @@
     "ethers": "^5.7.2",
     "hardhat": "^2.19.5"
   },
-  "dependencies": {
-    "@openzeppelin/contracts": "^4.9.3"
-  },
   "directories": {
     "test": "test"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.6"
   }
 }
