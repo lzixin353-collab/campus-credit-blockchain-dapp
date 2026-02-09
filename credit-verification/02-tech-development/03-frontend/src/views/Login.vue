@@ -9,8 +9,9 @@
         @click="connectWallet"
         :loading="loading"
       >
-        {{ address ? `切换钱包 (${shortAddress})` : '连接Metamask钱包' }}
+        {{ connectButtonText }}
       </el-button>
+      <p v-if="address" class="connect-status">已连接：{{ shortAddress }}</p>
       <el-button 
         v-if="address"
         type="success" 
@@ -46,13 +47,28 @@ const shortAddress = computed(() => {
   return `${address.value.slice(0, 6)}...${address.value.slice(-4)}`
 })
 
+// 按钮文案：确保连接后有明显变化
+const connectButtonText = computed(() => {
+  if (loading.value) return '连接中...'
+  if (address.value) return `已连接 (${shortAddress.value})`
+  return '连接 Metamask 钱包'
+})
+
 // 连接钱包
 const connectWallet = async () => {
   loading.value = true
+  address.value = '' // 先清空，避免沿用旧状态
   try {
     const web3 = await initWeb3()
     if (web3) {
-      address.value = await getCurrentAddress(web3)
+      address.value = await getCurrentAddress(web3) || ''
+    }
+    // 若 initWeb3 因链切换失败返回 null，仍尝试显示已选账户（用户已授权连接）
+    if (!address.value && window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' })
+        address.value = accounts[0] || ''
+      } catch (_) {}
     }
   } catch (error) {
     console.error('连接钱包失败：', error)
@@ -116,6 +132,14 @@ onMounted(() => {
 .title {
   margin-bottom: 30px;
   color: #1989fa;
+}
+.connect-status {
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: #67c23a;
+}
+.login-btn {
+  margin-top: 16px;
 }
 .btn-wrap {
   display: flex;
