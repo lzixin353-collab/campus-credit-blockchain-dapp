@@ -1,76 +1,93 @@
+// middleware/auth.go
 package middleware
 
 import (
-	"campus-credit-backend/utils"
+	"net/http"
 	"strings"
+
+	"campus-credit-backend/utils"
 
 	"github.com/gin-gonic/gin"
 )
 
-// JWTAuth JWT认证中间件（验证token有效性）
-func JWTAuth() gin.HandlerFunc {
+// AuthMiddleware 登录鉴权中间件（验证JWT Token）
+func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 从请求头获取token（格式：Bearer xxxx）
+		// 从Header获取Token
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			utils.AuthError(c, "请先登录")
-			c.Abort() // 终止请求
+			c.JSON(http.StatusUnauthorized, utils.Response{
+				Code: 401,
+				Msg:  "未登录，请先登录",
+				Data: nil,
+			})
+			c.Abort()
 			return
 		}
 
-		// 解析token格式
+		// 解析Token格式（Bearer Token）
 		parts := strings.SplitN(authHeader, " ", 2)
-		if !(len(parts) == 2 && parts[0] == "Bearer") {
-			utils.AuthError(c, "token格式错误")
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			c.JSON(http.StatusUnauthorized, utils.Response{
+				Code: 401,
+				Msg:  "Token格式错误",
+				Data: nil,
+			})
 			c.Abort()
 			return
 		}
 
-		// 解析token
-		tokenString := parts[1]
-		claims, err := utils.ParseToken(tokenString)
+		// 解析Token
+		claims, err := utils.ParseToken(parts[1])
 		if err != nil {
-			utils.AuthError(c, "token无效或已过期")
+			c.JSON(http.StatusUnauthorized, utils.Response{
+				Code: 401,
+				Msg:  "Token无效或已过期",
+				Data: nil,
+			})
 			c.Abort()
 			return
 		}
 
-		// 将用户信息存入上下文，供后续接口使用
-		c.Set("user_id", claims.UserID)
-		c.Set("address", claims.Address)
+		// 将用户信息存入上下文
+		c.Set("userId", claims.UserId)
+		c.Set("username", claims.Username)
 		c.Set("role", claims.Role)
-
-		c.Next() // 继续执行后续中间件/接口
+		c.Next()
 	}
 }
 
-// RoleAuth 角色权限校验中间件（指定允许的角色）
-func RoleAuth(roles ...string) gin.HandlerFunc {
+// RoleMiddleware 角色权限校验中间件
+func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 从上下文获取用户角色
 		role, exists := c.Get("role")
 		if !exists {
-			utils.ForbidError(c)
+			c.JSON(http.StatusForbidden, utils.Response{
+				Code: 403,
+				Msg:  "无权限访问",
+				Data: nil,
+			})
 			c.Abort()
 			return
 		}
 
-		// 校验角色是否在允许列表中
-		allowed := false
-		userRole := role.(string)
-		for _, r := range roles {
-			if userRole == r {
-				allowed = true
+		// 校验角色是否在允许列表
+		allow := false
+		for _, r := range allowedRoles {
+			if role.(string) == r {
+				allow = true
 				break
 			}
 		}
-
-		if !allowed {
-			utils.ForbidError(c)
+		if !allow {
+			c.JSON(http.StatusForbidden, utils.Response{
+				Code: 403,
+				Msg:  "仅" + strings.Join(allowedRoles, "/") + "可访问",
+				Data: nil,
+			})
 			c.Abort()
 			return
 		}
-
 		c.Next()
 	}
 }

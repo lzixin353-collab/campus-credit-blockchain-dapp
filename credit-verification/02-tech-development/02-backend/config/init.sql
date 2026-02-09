@@ -30,3 +30,29 @@ CREATE TABLE IF NOT EXISTS credits (
     KEY idx_teacher (teacher_address),
     KEY idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 1. 用户表（存储登录账号、密码、基础信息）
+CREATE TABLE `users` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID',
+  `username` varchar(50) NOT NULL COMMENT '登录账号（唯一）',
+  `password` varchar(100) NOT NULL COMMENT '加密密码（bcrypt）', -- 关键字段：password
+  `address` varchar(64) DEFAULT NULL COMMENT '以太坊地址（关联合约角色）',
+  `role` varchar(20) NOT NULL DEFAULT 'student' COMMENT '本地角色（teacher/admin/student）',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_username` (`username`),
+  UNIQUE KEY `idx_address` (`address`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户基础信息表';
+
+-- 2. 接口访问日志表（可选，用于调试）
+CREATE TABLE `access_logs` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint unsigned DEFAULT NULL,
+  `path` varchar(100) NOT NULL,
+  `method` varchar(10) NOT NULL,
+  `ip` varchar(32) DEFAULT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='接口访问日志';
