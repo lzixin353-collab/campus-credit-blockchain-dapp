@@ -71,10 +71,11 @@ func RoleMiddleware(allowedRoles ...string) gin.HandlerFunc {
 			return
 		}
 
-		// 校验角色是否在允许列表
+		// 校验角色是否在允许列表（不区分大小写，避免 Postman 等传 Admin 导致 403）
+		roleStr := strings.ToLower(role.(string))
 		allow := false
 		for _, r := range allowedRoles {
-			if role.(string) == r {
+			if roleStr == strings.ToLower(r) {
 				allow = true
 				break
 			}

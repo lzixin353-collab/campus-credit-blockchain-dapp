@@ -1,3 +1,5 @@
+# 复制为 config.yaml 后填写真实配置，勿将 config.yaml 提交到 Git
+
 # 服务器配置
 server:
   port: 8080
@@ -5,18 +7,18 @@ server:
 
 # MySQL配置
 mysql:
-  dsn: "root:你的数据库密码@tcp(127.0.0.1:3306)/credit_dapp?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: "用户名:密码@tcp(127.0.0.1:3306)/credit_dapp?charset=utf8mb4&parseTime=True&loc=Local"
   max_open_conns: 100
   max_idle_conns: 20
   conn_max_lifetime: 3600
 
 # 以太坊/合约配置
 ethereum:
-  rpc_url: "http://127.0.0.1:8545"  # 本地节点RPC，固定值
-  credit_contract_addr: "你的合约地址（部署后替换）"  # 替换为你的CreditContract地址
-  private_key: "你的私钥（本地替换，不要上传）" # 替换为本地节点第一个钱包私钥
+  rpc_url: "http://127.0.0.1:8545"  # 本地 Hardhat 或测试网 RPC
+  credit_contract_addr: ""          # 部署后的 CreditContract 地址
+  private_key: ""                  # 后端发链上交易用的私钥（勿泄露）
 
 # JWT配置
 jwt:
-  secret: "你的密钥"  # 自定义密钥
+  secret: ""           # 自定义密钥，建议随机字符串
   expire_hours: 24

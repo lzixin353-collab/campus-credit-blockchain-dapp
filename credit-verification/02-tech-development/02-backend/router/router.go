@@ -27,14 +27,34 @@ func InitRouter(r *gin.Engine) {
 		{
 			user.GET("/info", controller.UserInfo)
 			user.POST("/update", controller.UserUpdate)
+			user.POST("/bind-address", controller.BindAddress)
 		}
 
-		// 角色管理（仅admin/teacher可访问）
+		// 角色管理（仅admin可访问）
 		role := auth.Group("/role")
-		role.Use(middleware.RoleMiddleware("admin", "teacher"))
+		role.Use(middleware.RoleMiddleware("admin"))
 		{
 			role.POST("/assign", controller.AssignRole)
 			role.GET("/get", controller.GetRole)
+		}
+
+		// 学分：录入仅教师，审核/待审核仅管理员，列表按角色
+		credit := auth.Group("/credit")
+		{
+			credit.GET("/list", controller.CreditList)
+			credit.POST("/sync", controller.CreditSync)
+		}
+		creditTeacher := auth.Group("/credit")
+		creditTeacher.Use(middleware.RoleMiddleware("teacher"))
+		{
+			creditTeacher.POST("/record", controller.CreditRecord)
+		}
+		creditAdmin := auth.Group("/credit")
+		creditAdmin.Use(middleware.RoleMiddleware("admin"))
+		{
+			creditAdmin.POST("/approve", controller.CreditApprove)
+			creditAdmin.POST("/reject", controller.CreditReject)
+			creditAdmin.GET("/pending", controller.CreditPending)
 		}
 	}
 }

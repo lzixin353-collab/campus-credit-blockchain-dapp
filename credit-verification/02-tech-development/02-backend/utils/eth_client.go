@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -88,4 +89,21 @@ func GetTransactOpts() (*bind.TransactOpts, error) {
 	transactOpts.GasPrice = big.NewInt(1000000000)
 
 	return transactOpts, nil
+}
+
+// WaitTxMined 等待交易被打包，便于随后查询链上状态（如 getStudentCredits）
+func WaitTxMined(ctx context.Context, txHashHex string, maxWait time.Duration) error {
+	if EthClient == nil {
+		return fmt.Errorf("以太坊客户端未初始化")
+	}
+	hash := common.HexToHash(txHashHex)
+	deadline := time.Now().Add(maxWait)
+	for time.Now().Before(deadline) {
+		receipt, err := EthClient.TransactionReceipt(ctx, hash)
+		if err == nil && receipt != nil {
+			return nil
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return fmt.Errorf("等待交易打包超时: %s", txHashHex)
 }

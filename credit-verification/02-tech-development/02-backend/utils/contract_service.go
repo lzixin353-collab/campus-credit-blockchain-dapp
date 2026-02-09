@@ -57,11 +57,65 @@ func GetRole(userAddress string) (string, error) {
 		return role, nil
 	}
 
-	// 3. 缓存无则返回默认角色（student），避免500报错
-	return "student", nil
+	// 3. 缓存无则从链上查询（用于钱包登录）
+	return GetRoleFromChain(userAddress)
 }
 
-// ========== 学分管理相关（无需修改，仅调用 CreditContract） ==========
+// GetRoleFromChain 从合约读取地址对应角色（用于钱包登录）
+// bind.Call 的 result 需为 *[]interface{}，再从首元素取 string；避免 panic 导致 500
+func GetRoleFromChain(userAddress string) (string, error) {
+	if !common.IsHexAddress(userAddress) {
+		return "", fmt.Errorf("无效的以太坊地址: %s", userAddress)
+	}
+	if CreditContractInstance == nil {
+		return "student", nil
+	}
+	var out []interface{}
+	err := CreditContractInstance.Call(&bind.CallOpts{}, &out, "getRole", common.HexToAddress(userAddress))
+	if err != nil || len(out) == 0 {
+		return "student", nil
+	}
+	var role string
+	if s, ok := out[0].(string); ok {
+		role = s
+	}
+	if role == "" {
+		role = "student"
+	}
+	return role, nil
+}
+
+// ========== 学分管理相关 ==========
+
+// GetNextCreditId 获取合约中 nextCreditId 当前值，即「下一次录入学分」将使用的 id
+func GetNextCreditId() (uint64, error) {
+	if CreditContractInstance == nil {
+		return 0, fmt.Errorf("合约未初始化")
+	}
+	var out []interface{}
+	err := CreditContractInstance.Call(&bind.CallOpts{}, &out, "nextCreditId")
+	if err != nil {
+		return 0, fmt.Errorf("读取nextCreditId失败: %v", err)
+	}
+	if len(out) == 0 {
+		return 0, fmt.Errorf("nextCreditId返回为空")
+	}
+	v := out[0]
+	if v == nil {
+		return 0, fmt.Errorf("nextCreditId为空")
+	}
+	switch t := v.(type) {
+	case *big.Int:
+		return t.Uint64(), nil
+	case uint64:
+		return t, nil
+	case uint32:
+		return uint64(t), nil
+	default:
+		return 0, fmt.Errorf("nextCreditId类型异常: %T", v)
+	}
+}
+
 func RecordCredit(userAddress string, courseName string, score float64) (string, error) {
 	if score < 0 || score > 100 {
 		return "", fmt.Errorf("学分值超出范围（0-100）: %v", score)
@@ -76,13 +130,12 @@ func RecordCredit(userAddress string, courseName string, score float64) (string,
 		return "", fmt.Errorf("获取交易选项失败: %v", err)
 	}
 
-	// 直接调用 CreditContract 的 recordCredit
 	tx, err := CreditContractInstance.Transact(
 		transactOpts,
 		"recordCredit",
-		userAddress, // 学生学号
-		courseName,  // 课程名
-		scoreUint8,  // 分数
+		userAddress,
+		courseName,
+		scoreUint8,
 	)
 	if err != nil {
 		return "", fmt.Errorf("调用recordCredit失败: %v", err)
